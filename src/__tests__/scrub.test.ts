@@ -115,6 +115,37 @@ describe("scrubOpenClawFingerprints", () => {
     ].sort())
   })
 
+  // OpenClaw renamed this section between 2026.4.x and 2026.7 — the exact
+  // failure a heading list would hit silently, reported in #769 by someone
+  // running the newer build. Matching on the directive syntax survives it.
+  it("removes the directive block under its 2026.7+ heading", () => {
+    const modern = [
+      "You are a personal assistant running inside OpenClaw.",
+      "## Tooling",
+      "- read: Read file contents",
+      "## Assistant Output Directives",
+      "- Directive starts line, plain text, outside fences/Markdown; never inline or wrapped.",
+      "- Native reply starts with [[reply_to_current]]; use [[reply_to:<id>]] only with an explicit id.",
+      "- Directives stripped before render; channel config controls delivery.",
+      "## Messaging",
+      "- Reply in current session",
+    ].join("\n")
+
+    const out = scrubOpenClawFingerprints(modern)
+    expect(out).not.toContain("## Assistant Output Directives")
+    expect(out).not.toContain("[[reply_to_current]]")
+    // and nothing else goes with it
+    expect(out).toContain("## Tooling")
+    expect(out).toContain("- read: Read file contents")
+    expect(out).toContain("## Messaging")
+  })
+
+  it("recognises a 2026.7+ prompt even without the 2026.4 identity line", () => {
+    const modern = "## Assistant Output Directives\n- Native reply starts with [[reply_to_current]].\n## Messaging\n- x"
+    expect(looksLikeOpenClaw(modern)).toBe(true)
+    expect(scrubOpenClawFingerprints(modern)).not.toContain("reply_to_current")
+  })
+
   it("reduces the brand tell without gutting functional text", () => {
     const count = (s: string) => (s.toLowerCase().match(/openclaw/g) ?? []).length
     expect(count(scrubbed)).toBeLessThan(count(REAL))

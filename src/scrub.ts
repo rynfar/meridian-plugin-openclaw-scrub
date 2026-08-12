@@ -10,7 +10,10 @@
  * of the prompt — including the whole tool inventory and the skills index —
  * passes cleanly:
  *
- *   ## Reply Tags                    (OpenClaw's own prompt)
+ *   the output-directive block       (OpenClaw's own prompt — titled
+ *                                     "## Reply Tags" in 2026.4.x and
+ *                                     "## Assistant Output Directives" from
+ *                                     2026.7 on, hence matched by content)
  *   ## 💓 Heartbeats - Be Proactive! (scaffolded AGENTS.md)
  *   ## Heartbeats                    (scaffolded BOOTSTRAP.md)
  *
@@ -25,11 +28,10 @@
  *
  * WHAT THIS COSTS
  *
- * Removing the heartbeat sections does not disable heartbeats — OpenClaw's
- * scheduler still fires them — but the model loses its guidance on how to
- * behave when one arrives. Removing Reply Tags loses native reply/quote
- * threading. Both are real losses, taken deliberately: the alternative is a
- * request that fails outright with a 400.
+ * See the README: heartbeats still work (the poll carries its own protocol and
+ * the agent reads HEARTBEAT.md from disk), but the proactive guidance in
+ * AGENTS.md goes, and native reply/quote threading goes with the directive
+ * block. Taken deliberately — the alternative is a request that 400s.
  */
 
 /** OpenClaw's opening identity line, which names the product outright. */
@@ -39,8 +41,15 @@ const IDENTITY_LINE = /^You are a personal assistant running inside OpenClaw\.[ 
  *  never left without one — the same move pi-scrub and opencode-scrub make. */
 const NEUTRAL_IDENTITY = "You are a helpful personal assistant.\n"
 
-/** Load-bearing: measured to trip the metering on its own. */
-const METERING_HEADINGS = ["## Reply Tags"]
+/** Load-bearing, matched by CONTENT rather than heading.
+ *
+ *  The directive block carried the heading `## Reply Tags` in 2026.4.x and
+ *  `## Assistant Output Directives` from 2026.7 on — a literal heading list
+ *  silently stops firing the next time it is renamed, which is the failure mode
+ *  most likely to go unnoticed. `[[reply_to` is the directive syntax itself and
+ *  has survived every rename so far, so the section is identified by what it
+ *  teaches rather than what it is called. */
+const METERING_SECTION_BODY = /\[\[reply_to/
 
 /** Also load-bearing. Matched by substring because the heading differs between
  *  the two files that carry it ("## Heartbeats" and
@@ -55,13 +64,13 @@ const METERING_HEADING_PATTERN = /heartbeat/i
  *  measured not to matter. */
 const BRAND_HEADINGS = ["## Documentation"]
 
-function isRemovableHeading(heading: string): boolean {
+function isRemovableHeading(heading: string, body: string): boolean {
   const h = heading.trim()
   if (!h.startsWith("## ")) return false
   return (
-    METERING_HEADINGS.includes(h) ||
     BRAND_HEADINGS.includes(h) ||
-    METERING_HEADING_PATTERN.test(h)
+    METERING_HEADING_PATTERN.test(h) ||
+    METERING_SECTION_BODY.test(body)
   )
 }
 
@@ -74,15 +83,29 @@ function isRemovableHeading(heading: string): boolean {
  */
 function removeSections(prompt: string): string {
   const lines = prompt.split("\n")
-  const out: string[] = []
-  let skipping = false
+  const isHeading = (l: string) =>
+    l.startsWith("## ") || (l.startsWith("# ") && !l.startsWith("## "))
 
-  for (const line of lines) {
-    const isHeading = line.startsWith("## ") || (line.startsWith("# ") && !line.startsWith("## "))
-    if (isHeading) skipping = isRemovableHeading(line)
-    if (!skipping) out.push(line)
+  // Two passes: a section is judged on its whole body, so its extent has to be
+  // known before deciding to drop it.
+  const bounds: Array<{ start: number; end: number }> = []
+  for (let i = 0; i < lines.length; i++) {
+    if (!isHeading(lines[i]!)) continue
+    let end = lines.length
+    for (let j = i + 1; j < lines.length; j++) {
+      if (isHeading(lines[j]!)) { end = j; break }
+    }
+    bounds.push({ start: i, end })
   }
-  return out.join("\n")
+
+  const drop = new Set<number>()
+  for (const { start, end } of bounds) {
+    const body = lines.slice(start, end).join("\n")
+    if (isRemovableHeading(lines[start]!, body)) {
+      for (let k = start; k < end; k++) drop.add(k)
+    }
+  }
+  return lines.filter((_, i) => !drop.has(i)).join("\n")
 }
 
 /**
@@ -94,9 +117,8 @@ function removeSections(prompt: string): string {
  */
 export function looksLikeOpenClaw(systemPrompt: string): boolean {
   if (IDENTITY_LINE.test(systemPrompt)) return true
-  return systemPrompt.split("\n").some(
-    (l) => l.trim() === "## Reply Tags" || l.trim() === "## Documentation",
-  )
+  if (METERING_SECTION_BODY.test(systemPrompt)) return true
+  return systemPrompt.split("\n").some((l) => l.trim() === "## Documentation")
 }
 
 /**
