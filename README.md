@@ -40,14 +40,28 @@ Same headless request (`openclaw agent --local`), same Max account, plugin off t
 
 ## What it costs
 
-This is a real trade, taken deliberately — the alternative is a request that fails outright:
+Measured on a real workspace, not assumed:
 
-- **Heartbeat guidance is dropped.** OpenClaw's scheduler still fires heartbeats; the model just loses its instructions for what to do when one arrives.
-- **Native reply/quote threading is lost.** `[[reply_to_current]]` tags are no longer described, so the model won't emit them.
+**Heartbeats still work.** The removed sections are guidance, not mechanism — OpenClaw's scheduler still fires, and the heartbeat poll message carries its own protocol ("reply `HEARTBEAT_OK`") and tells the agent to read `HEARTBEAT.md`. The scrub removes the *inlined copy* of that file, not the file, and the agent has the `read` tool. Fired at a scrubbed agent, it read `HEARTBEAT.md` and replied exactly `HEARTBEAT_OK`.
 
-Everything else is preserved verbatim: the tool list, tool-call style, safety block, skills index, memory and workspace rules, messaging rules, and every user-authored file OpenClaw inlines.
+What is genuinely lost is the richer proactive guidance in `AGENTS.md`: what to sweep on each heartbeat (email, calendar, mentions), when to speak up versus stay quiet (late night, human busy, nothing new, checked under 30 minutes ago), and the memory-maintenance pass. If you rely on that judgement, move it into `HEARTBEAT.md`, which the agent reads on demand and which the scrub therefore cannot cost you.
+
+**Reply tags are lost.** `[[reply_to_current]]` is no longer described, so the model will not emit it and native reply/quote threading stops. This only affects chat surfaces (Telegram, Discord, Signal) and is not observable in `--local` mode, so it is stated rather than measured.
+
+Everything else is preserved verbatim: the tool list, tool-call style, safety block, skills index, memory and workspace rules, messaging rules, and every user-authored file OpenClaw inlines apart from the heartbeat sections above.
 
 Also removed, purely cosmetically: the identity line (replaced with a neutral one, never deleted, so the model still has a role) and the `## Documentation` block of docs/repo/Discord links. Neither affects metering. The `## OpenClaw CLI Quick Reference` is deliberately **kept** — it names the product, but it was measured not to matter and it is the agent's only reference for managing its own gateway.
+
+## Verified behaviour
+
+Against a real workspace through the real daemon, with the plugin installed:
+
+| Check | Result |
+|---|---|
+| plain turn | `stop`, replies |
+| tool call (`exec`) | runs, output returned |
+| multi-turn recall | context preserved across turns |
+| heartbeat poll | reads `HEARTBEAT.md`, replies `HEARTBEAT_OK` |
 
 ## Install
 
