@@ -4,11 +4,10 @@
  *
  * WHAT ACTUALLY TRIPS IT
  *
- * Measured, not guessed. Each section of a captured 30KB OpenClaw prompt was
- * replayed through Meridian against a Max account and checked for
- * `400 You're out of extra usage`. Three sections fail on their own; the rest
- * of the prompt — including the whole tool inventory and the skills index —
- * passes cleanly:
+ * Measured on 2026-08-12, not guessed. Each section of a captured 30KB OpenClaw
+ * prompt was replayed against a Max account and checked for `400 You're out of
+ * extra usage`. Three sections failed on their own; the rest of the prompt —
+ * including the whole tool inventory and the skills index — passed cleanly:
  *
  *   the output-directive block       (OpenClaw's own prompt — titled
  *                                     "## Reply Tags" in 2026.4.x and
@@ -25,6 +24,12 @@
  * Notably NOT the trigger, though both look like obvious suspects: the
  * `## Tooling` block listing read/write/edit/exec, and the 8KB skills index.
  * Sent together they pass. A coding tool surface is not what gets flagged.
+ *
+ * THE CLASSIFIER MOVES. Later the same day, with extra usage in the identical
+ * state, the verbatim directive block and the full unscrubbed prompt both
+ * passed. This list is a snapshot of a system we cannot see, not a property of
+ * these strings — see the README before trusting it, and always establish a
+ * negative control before concluding a change fixed anything.
  *
  * WHAT THIS COSTS
  *

@@ -14,29 +14,29 @@ The request is being billed as a **third-party app** — drawing from Extra Usag
 
 ## What actually trips it
 
-Measured, not guessed. A captured 30KB OpenClaw prompt was split into sections and each was replayed through Meridian against a Max account. Three sections fail **on their own**:
+Measured on **2026-08-12**, against a Max account, by splitting a captured 30KB OpenClaw prompt into sections and replaying each one looking for `400 You're out of extra usage`. Three sections failed **on their own**:
 
 | Section | Source |
 |---|---|
-| `## Reply Tags` | OpenClaw's system prompt |
+| the output-directive block (`## Reply Tags` in 2026.4.x, `## Assistant Output Directives` from 2026.7) | OpenClaw's system prompt |
 | `## 💓 Heartbeats - Be Proactive!` | scaffolded `AGENTS.md` |
 | `## Heartbeats` | scaffolded `BOOTSTRAP.md` |
 
-Two of the three are heartbeats — instructions for acting on a schedule with nobody watching. The third wires replies into a chat surface. Together they read as an autonomous bot rather than an assistant answering a person.
+Two of the three are heartbeats — instructions for acting on a schedule with nobody watching. The third describes wiring replies into a chat surface. Together they read as an autonomous bot rather than an assistant answering a person.
 
-**Two obvious suspects are not the trigger.** The `## Tooling` block listing `read`/`write`/`edit`/`exec`, and the 8KB skills index, pass cleanly when sent together. A coding tool surface is not what gets flagged — and neither is the `tools` array itself, which passes with the same tool names.
+**Two obvious suspects were not the trigger.** The `## Tooling` block listing `read`/`write`/`edit`/`exec`, and the 8KB skills index, passed cleanly when sent together — as did the `tools` array itself with the same tool names. A coding tool surface is not what gets flagged.
 
-Removing those three sections makes the full prompt pass.
+## Read this before trusting the section list
 
-## Proof
+**The classifier is not stable, and these findings are a snapshot.**
 
-Same headless request (`openclaw agent --local`), same Max account, plugin off then on:
+Later the same day, with `extraUsage` unchanged (`isEnabled: false`, `usedCredits: 0` — the same state that produced the 400), the *verbatim* directive block passed, and so did the full unscrubbed prompt on two consecutive attempts, on both a Max and a Team account. Nothing local changed.
 
-| | plugin off | plugin on |
-|---|---|---|
-| `stopReason` | `error` | `stop` |
-| error | `400 You're out of extra usage` | none |
-| reply | — | `ping` |
+So Anthropic's classification moved within hours. What follows:
+
+- The section attribution above was real when taken — reproduced, with negative controls — but it is **an observation of a system we do not control and cannot see**, not a permanent property of these strings.
+- The scrub may be unnecessary on some days and necessary on others. It is cheap insurance either way: it is a content-guarded no-op on non-OpenClaw prompts and removes a bounded, documented set of sections.
+- If you are debugging this yourself, **establish a negative control first** — confirm an unscrubbed prompt actually fails right now — before concluding that any change fixed it. Both of the wrong turns taken while building this plugin came from trusting a stale control.
 
 ## What it costs
 
