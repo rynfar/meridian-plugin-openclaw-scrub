@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { looksLikeOpenClaw, scrubOpenClawFingerprints } from "../scrub.js"
+import { scrubOpenClawHeartbeatHistory } from "../history.js"
+import plugin from "../index.js"
 
 /**
  * The real prompt OpenClaw 2026.4.2 sent through Meridian, captured on the
@@ -151,5 +153,93 @@ describe("scrubOpenClawFingerprints", () => {
     expect(count(scrubbed)).toBeLessThan(count(REAL))
     // Most of the prompt survives: this is a scalpel, not a truncation.
     expect(scrubbed.length).toBeGreaterThan(REAL.length * 0.7)
+  })
+})
+
+describe("scrubOpenClawHeartbeatHistory", () => {
+  const poll = (time: string) => ({
+    role: "user",
+    content: [{ type: "text", text: `Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.\nCurrent time: ${time}` }],
+  })
+
+  it("keeps only the newest unanswered poll in a failed replay", () => {
+    const messages = [
+      { role: "user", content: "ordinary request" },
+      { role: "assistant", content: [{ type: "text", text: "ordinary reply" }] },
+      poll("10:00"),
+      poll("10:30"),
+      poll("11:00"),
+    ]
+    const out = scrubOpenClawHeartbeatHistory(messages)
+    expect(out).toEqual([messages[0], messages[1], messages[4]])
+  })
+
+  it("removes old exact acknowledgments together with their polls", () => {
+    const messages = [
+      poll("10:00"),
+      { role: "assistant", content: "HEARTBEAT_OK" },
+      poll("10:30"),
+      { role: "assistant", content: [{ type: "text", text: "HEARTBEAT_OK" }] },
+      poll("11:00"),
+    ]
+    expect(scrubOpenClawHeartbeatHistory(messages)).toEqual([messages[4]])
+  })
+
+  it("preserves a heartbeat turn that produced a real alert", () => {
+    const messages = [
+      poll("10:00"),
+      { role: "assistant", content: "Build is failing on main." },
+      poll("10:30"),
+      poll("11:00"),
+    ]
+    const out = scrubOpenClawHeartbeatHistory(messages)
+    expect(out).toEqual([messages[0], messages[1], messages[3]])
+  })
+
+  it("is an exact no-op with zero or one heartbeat poll", () => {
+    const ordinary = [{ role: "user", content: "Read HEARTBEAT.md only if I ask." }]
+    expect(scrubOpenClawHeartbeatHistory(ordinary)).toBe(ordinary)
+    const one = [poll("11:00")]
+    expect(scrubOpenClawHeartbeatHistory(one)).toBe(one)
+  })
+
+  it("does not treat quoted or assistant-side heartbeat text as a poll", () => {
+    const messages = [
+      { role: "user", content: `Please explain this text: Read HEARTBEAT.md if it exists (workspace context).` },
+      { role: "assistant", content: `Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.` },
+      poll("11:00"),
+    ]
+    expect(scrubOpenClawHeartbeatHistory(messages)).toBe(messages)
+  })
+})
+
+describe("plugin request transform", () => {
+  const heartbeat = {
+    role: "user",
+    content: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.",
+  }
+
+  it("scrubs both prompt and stale heartbeat replay for OpenClaw", () => {
+    const ctx = {
+      adapter: "pi",
+      systemContext: REAL,
+      messages: [heartbeat, heartbeat],
+      metadata: { keep: true },
+    }
+    const out = plugin.onRequest!(ctx)
+    expect(out).not.toBe(ctx)
+    expect(out.systemContext).not.toContain("running inside OpenClaw")
+    expect(out.messages).toEqual([heartbeat])
+    expect(out.metadata).toBe(ctx.metadata)
+  })
+
+  it("returns the exact context for non-OpenClaw traffic", () => {
+    const ctx = {
+      adapter: "prime",
+      systemContext: "You are a general purpose agent that uses code to solve tasks.",
+      messages: [heartbeat, heartbeat],
+      metadata: {},
+    }
+    expect(plugin.onRequest!(ctx)).toBe(ctx)
   })
 })
