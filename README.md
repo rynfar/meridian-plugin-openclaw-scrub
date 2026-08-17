@@ -38,6 +38,19 @@ So Anthropic's classification moved within hours. What follows:
 - The scrub may be unnecessary on some days and necessary on others. It is cheap insurance either way: it is a content-guarded no-op on non-OpenClaw prompts and removes a bounded, documented set of sections.
 - If you are debugging this yourself, **establish a negative control first** — confirm an unscrubbed prompt actually fails right now — before concluding that any change fixed it. Both of the wrong turns taken while building this plugin came from trusting a stale control.
 
+## Long-running heartbeat sessions
+
+OpenClaw records a heartbeat poll even when the upstream request is refused before producing a reply. A persistent session can therefore accumulate hundreds of identical `Read HEARTBEAT.md...` user turns and replay all of them every 30 minutes. That history is itself an autonomous-agent fingerprint, even after the system prompt has been scrubbed.
+
+For recognized OpenClaw requests, this plugin collapses that stale replay before it reaches Claude:
+
+- the newest heartbeat poll is preserved so the current turn still runs;
+- older unanswered polls and exact `HEARTBEAT_OK` acknowledgments are removed;
+- heartbeat turns that produced a substantive alert are preserved;
+- the on-disk OpenClaw transcript is untouched.
+
+This also prevents failed heartbeat sessions from growing the upstream prompt indefinitely.
+
 ## What it costs
 
 Measured on a real workspace, not assumed:

@@ -17,6 +17,8 @@ export interface RequestContext {
   readonly adapter: string
   /** Client-provided system prompt / context string, if any */
   systemContext?: string
+  /** Normalized conversation replay sent to the upstream model */
+  messages?: unknown[]
   /** Plugin-to-plugin state bag */
   metadata: Record<string, unknown>
   /** Everything else meridian fills in — messages, model, tools, ... */
