@@ -1,10 +1,10 @@
 # @rynfar/meridian-plugin-openclaw-scrub
 
-A [Meridian](https://github.com/rynfar/meridian) plugin that stops [OpenClaw](https://github.com/openclaw/openclaw) traffic from being metered as a third-party app.
+A [Meridian](https://github.com/rynfar/meridian) plugin that removes known [OpenClaw](https://github.com/openclaw/openclaw) prompt fingerprints associated with third-party app metering. The classifier changes, so a loaded plugin does not guarantee that every OpenClaw request will pass.
 
 ## Why
 
-Point OpenClaw at Meridian to use a Claude Max subscription and every request fails:
+In the affected deployments, pointing OpenClaw at Meridian with a Claude Max subscription produced:
 
 ```
 API Error: 400 You're out of extra usage. Add more at claude.ai/settings/usage and keep going.
@@ -37,6 +37,17 @@ So Anthropic's classification moved within hours. What follows:
 - The section attribution above was real when taken — reproduced, with negative controls — but it is **an observation of a system we do not control and cannot see**, not a permanent property of these strings.
 - The scrub may be unnecessary on some days and necessary on others. It is cheap insurance either way: it is a content-guarded no-op on non-OpenClaw prompts and removes a bounded, documented set of sections.
 - If you are debugging this yourself, **establish a negative control first** — confirm an unscrubbed prompt actually fails right now — before concluding that any change fixed it. Both of the wrong turns taken while building this plugin came from trusting a stale control.
+
+The later [production report](https://github.com/rynfar/meridian/issues/769) found a new trigger outside this plugin's fixed rule set after an earlier scrub had passed. Keep the plugin's scope tied to verified request content; a passing plugin hook or a green unrelated prompt is not evidence that the current failing request was scrubbed.
+
+## Diagnose a new billing error
+
+1. First send a small, known-good request through the same Meridian profile and model without OpenClaw's prompt. If it fails too, check the subscription and OAuth credentials before changing scrub rules; an auth problem can surface as a similar billing error.
+2. In one short window, compare fresh OpenClaw sessions with the plugin off, on, then off again. Keep the account, model, client version, tools, and request shape fixed. The off runs must still fail while the on run passes before attributing the change to this plugin. If both states fail or both pass, the A/B result does not isolate a scrub effect.
+3. If the off control fails, capture the failing request **locally and privately** before Meridian. Minimize its system blocks against the same live control, then test any proposed rewrite against the minimized failure and the original full request. Recheck after every edit: redacting or paraphrasing the trigger can make the failure disappear and invalidate the comparison.
+4. Share only a sanitized minimal reproduction that still fails, plus the OpenClaw, Meridian, plugin and model versions, platform, and off/on/off outcomes. Never post raw request bodies, credentials, session identifiers, or customer transcripts. If no safe minimal fragment preserves the failure, keep the raw capture private and state that the trigger remains unverified.
+
+Prefer a narrow rewrite that retains useful client instructions if it clears the active control. A new fixed rule needs an idempotence and non-OpenClaw no-op check; the current classifier may move again before that rule ships.
 
 ## Long-running heartbeat sessions
 
