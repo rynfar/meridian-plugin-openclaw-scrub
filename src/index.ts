@@ -6,7 +6,7 @@
  * API but sends no distinguishing header, so its traffic arrives under whatever
  * adapter Meridian falls back to — observed as `opencode`. An adapter-scoped
  * filter would never fire. `scrubOpenClawFingerprints` self-scopes by content
- * and is an exact no-op on prompts that aren't OpenClaw's.
+ * and leaves prompts without its identity/directive markers untouched.
  */
 
 import type { Transform, RequestContext } from "./types.js"

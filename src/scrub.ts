@@ -123,12 +123,14 @@ function removeSections(prompt: string): string {
 export function looksLikeOpenClaw(systemPrompt: string): boolean {
   if (IDENTITY_LINE.test(systemPrompt)) return true
   if (METERING_SECTION_BODY.test(systemPrompt)) return true
-  return systemPrompt.split("\n").some((l) => l.trim() === "## Documentation")
+  // Documentation is a generic heading, not proof of OpenClaw identity.
+  // Its cosmetic cleanup applies only after one of the specific markers above.
+  return false
 }
 
 /**
- * Remove OpenClaw's metering fingerprint. Idempotent, and an exact no-op on
- * any prompt that isn't OpenClaw's.
+ * Remove known OpenClaw sections. Idempotent, and an exact no-op on prompts
+ * without the OpenClaw identity line or reply-directive syntax.
  */
 export function scrubOpenClawFingerprints(systemPrompt: string): string {
   if (!systemPrompt || !looksLikeOpenClaw(systemPrompt)) return systemPrompt

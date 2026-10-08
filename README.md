@@ -35,7 +35,7 @@ Later the same day, with `extraUsage` unchanged (`isEnabled: false`, `usedCredit
 So Anthropic's classification moved within hours. What follows:
 
 - The section attribution above was real when taken — reproduced, with negative controls — but it is **an observation of a system we do not control and cannot see**, not a permanent property of these strings.
-- The scrub may be unnecessary on some days and necessary on others. It is cheap insurance either way: it is a content-guarded no-op on non-OpenClaw prompts and removes a bounded, documented set of sections.
+- The scrub may be unnecessary on some days and necessary on others. It only transforms prompts with the OpenClaw identity/directive markers described below and removes a bounded, documented set of sections.
 - If you are debugging this yourself, **establish a negative control first** — confirm an unscrubbed prompt actually fails right now — before concluding that any change fixed it. Both of the wrong turns taken while building this plugin came from trusting a stale control.
 
 The later [production report](https://github.com/rynfar/meridian/issues/769) found a new trigger outside this plugin's fixed rule set after an earlier scrub had passed. Keep the plugin's scope tied to verified request content; a passing plugin hook or a green unrelated prompt is not evidence that the current failing request was scrubbed.
@@ -58,9 +58,13 @@ For recognized OpenClaw requests, this plugin collapses that stale replay before
 - the newest heartbeat poll is preserved so the current turn still runs;
 - older unanswered polls and exact `HEARTBEAT_OK` acknowledgments are removed;
 - heartbeat turns that produced a substantive alert are preserved;
+- tool calls/results, attachments, unknown or malformed content, and turns
+  with intervening messages are preserved in full;
 - the on-disk OpenClaw transcript is untouched.
 
 This also prevents failed heartbeat sessions from growing the upstream prompt indefinitely.
+Only adjacent unanswered polls or a lone, text-only empty/exact acknowledgment
+are eligible for trimming; unknown content is not evidence of an empty reply.
 
 ## What it costs
 
@@ -106,7 +110,10 @@ Paths must be absolute — the loader does not expand `~`.
 
 ## Scoping
 
-**Content-scoped, not adapter-scoped.** OpenClaw sends no distinguishing header, so its traffic arrives under whatever adapter Meridian falls back to (observed: `opencode`). An adapter filter would never fire. The scrub self-scopes by content, is idempotent, and is an exact no-op on any prompt that isn't OpenClaw's.
+**Content-scoped, not adapter-scoped.** OpenClaw sends no distinguishing header, so its traffic arrives under whatever adapter Meridian falls back to (observed: `opencode`). An adapter filter would never fire. The scrub recognizes the OpenClaw identity line or its reply-directive syntax and is idempotent. A generic `## Documentation` heading alone does not establish OpenClaw identity; cosmetic documentation cleanup requires one of those specific markers first.
+
+The reproducible controls for prompt scoping and heartbeat preservation are in
+[`docs/evidence/769-scope-history-controls.md`](docs/evidence/769-scope-history-controls.md).
 
 ## Team plans
 
