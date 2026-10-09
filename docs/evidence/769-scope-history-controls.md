@@ -96,3 +96,48 @@ close, public history reads and owned HTTP resources. Original failing runtime
 and missing-custody witnesses remain failures. It never establishes global
 descendant absence, publication, the reporter's Kubernetes tuple, or current
 billing-classifier acceptance.
+
+## 2026-10-09 native before/after qualification
+
+The [portable sanitized receipt](769-native-heartbeat-20261009.json) records the
+exact package and harness identities, versions, assertions, original process
+closure and remaining holds. The same 44 assertions on CI's Bun 1.3.14 yield
+25 pass / 19 fail on unchanged main and 44 pass / zero fail on the correction;
+typecheck and build pass. The corrected unpublished tarball has all 19 members
+matching the prior native-tested package exactly.
+
+With actual OpenClaw 2026.6.11, SDK 0.2.141, native Claude Code 2.1.284 and
+literal `opus[1m]` (observed `claude-opus-5-5[1m]`) on Linux arm64, the unchanged
+plugin receives five messages containing two polls and one real read call/result
+pair. It returns three messages with the call removed and its result retained.
+The original fresh SDK input and public owned session history confirm that lost
+call identity. The client can still return the receipt: successful wording alone
+would miss the defect. The baseline gate exits 1 on its intended history-integrity
+assertion, and that failure remains recorded.
+
+The corrected arm retains all five messages and the original pair. It also
+passes the ordinary actual-client follow-up. The old pure transform, evaluated
+only on a clone of this exact candidate body, would orphan the call, so the
+positive demonstrably exercises the faulty pruning case. All three candidate
+stages return the real file receipt and retain the matching call/result identities
+in supported SDK history. The final paired arms use three and four native SDK
+queries respectively and the identical committed harness.
+
+An earlier fixture attempt made two native queries and completed the real read,
+but failed because the default CLI timestamp obscured the prefix and the fixture
+expected native blocks instead of Meridian's rendered replay records. That failure
+was preserved, diagnosed through pinned client/core source and public SDK APIs,
+and corrected before the qualified pair. A preliminary corrected pair is retained;
+the final pair strengthens it with the exact-body old-source negative control.
+Sixteen native queries were made across those explicitly accounted-for runs.
+
+Original child/stdio/SDK/public-read/HTTP and outer container waits joined. Owned
+stopped containers were removed; the read-only access input stayed unchanged and
+was removed after the terminal audit. No source login/refresh/write or private SDK
+transcript inspection occurred. Global descendant absence remains unknown.
+
+This accepts the bounded history correction and generic Documentation no-op.
+It does not establish current classifier/billing acceptance, the original
+Kubernetes tuple, or recognition of default timestamp-prefixed CLI polls.
+Required final-head CI remains a merge gate. Meridian issue 769 stays open;
+release, publication and fresh registry-install verification are separate.

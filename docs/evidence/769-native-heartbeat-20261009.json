@@ -1,0 +1,192 @@
+{
+  "schema": 1,
+  "capturedAtUTC": "2026-10-09T06:45:36.981664+00:00",
+  "scope": "Two bounded prompt-scope/history-integrity corrections; not classifier/billing acceptance",
+  "pluginBase": "6192a1cfb9c244268b08b8f9bbc85ac9a00243d2",
+  "archivedAuthoredCorrection": "fa32842cac3b97f5bebfb54f5f33db45b8de960b",
+  "incorporatedCorrection": "bf6ddd807ad61c57801727226b59d45705bed7b6",
+  "testedHarnessHead": "ee2f8e17b4d7d4f45fb1f9abd881f04391c775a3",
+  "testedHarnessSHA256": "48f5432edf30b1e0fa85e4251f1a9308b8cd4499a541680e174677ae2794680c",
+  "meridianCoreMerge": "cd55dd9c94d39bea0dc009c8d011e6e352f42d3b",
+  "meridianPackageSHA256": "dcadf6b9bfec56fbca90878325a4a1acd83767d0af611856d68783290db873f2",
+  "pluginTarballs": {
+    "baselineSHA256": "431cee8921e449f56c1facef04b8cf8a934982a990f81785d040d13d2ab7e668",
+    "candidateSHA256": "b1585f7c890cfe419f997a1a1607f93bfb05e2f64d6a422eb3cad655cb7719a2",
+    "membersEach": 19,
+    "all38InstalledMembersContentTypeModeVerified": true,
+    "published": false
+  },
+  "versions": {
+    "openclaw": "2026.6.11 (e085fa1)",
+    "node": "22.22.3",
+    "nativeBun": "1.3.11",
+    "localAndCIBun": "1.3.14",
+    "sdk": "0.2.141",
+    "native": "2.1.284",
+    "wireModel": "opus[1m]",
+    "observedNativeModel": "claude-opus-5-5[1m]",
+    "platform": "Linux arm64 container",
+    "clientEnvelopeTimestamp": "off (supported owned config)",
+    "clientDelivery": false
+  },
+  "regressionSuite": {
+    "identicalAssertionsSHA256": "79553f6fc31fea471db708b1f5a41c3d81778686ff08717394ab9665df04aa67",
+    "before": {
+      "pass": 25,
+      "fail": 19,
+      "exit": 1
+    },
+    "after": {
+      "pass": 44,
+      "fail": 0,
+      "exit": 0
+    },
+    "typecheckExit": 0,
+    "buildExit": 0
+  },
+  "baseline": {
+    "status": "REPRODUCED_HEARTBEAT_ORPHAN_FAILURE_RETAINED",
+    "firstFailure": "supported-served-tool-pair-lost-heartbeat-replay",
+    "outerExit": 1,
+    "nativeQueries": 3,
+    "rawHeartbeat": {
+      "messages": 5,
+      "polls": 2,
+      "calls": 1,
+      "results": 1,
+      "orphanedResults": 0
+    },
+    "effectiveHeartbeat": {
+      "messages": 3,
+      "polls": 1,
+      "calls": 0,
+      "results": 1,
+      "orphanedResults": 1
+    },
+    "oldReferenceOnExactBody": {
+      "messages": 3,
+      "polls": 1,
+      "calls": 0,
+      "results": 1,
+      "orphanedResults": 1
+    },
+    "originalSDKFreshReplayLosesCallIdentity": true,
+    "successfulClientReceiptDoesNotEstablishHistoryIntegrity": true,
+    "rawReportSHA256": "d9e3fc3494c1a7e35e0aa0b2d84a96f2381a6a358f9c328a93f13dd557cba2ad"
+  },
+  "candidate": {
+    "status": "PASS_HEARTBEAT_TOOL_PAIR_AND_CONTINUATION_CLASSIFIER_HELD",
+    "firstFailure": null,
+    "outerExit": 0,
+    "nativeQueries": 4,
+    "rawHeartbeat": {
+      "messages": 5,
+      "polls": 2,
+      "calls": 1,
+      "results": 1,
+      "orphanedResults": 0
+    },
+    "effectiveHeartbeat": {
+      "messages": 5,
+      "polls": 2,
+      "calls": 1,
+      "results": 1,
+      "orphanedResults": 0
+    },
+    "oldReferenceOnExactBody": {
+      "messages": 3,
+      "polls": 1,
+      "calls": 0,
+      "results": 1,
+      "orphanedResults": 1
+    },
+    "rawAndEffectiveDigestEqual": true,
+    "stages": [
+      {
+        "name": "read-canary",
+        "successfulActualClientReceipt": true,
+        "supportedHistory": {
+          "messages": 2,
+          "polls": 0,
+          "calls": 1,
+          "results": 1,
+          "orphanedResults": 0
+        },
+        "sdkResumeObserved": false
+      },
+      {
+        "name": "heartbeat-replay",
+        "successfulActualClientReceipt": true,
+        "supportedHistory": {
+          "messages": 2,
+          "polls": 0,
+          "calls": 1,
+          "results": 1,
+          "orphanedResults": 0
+        },
+        "sdkResumeObserved": false
+      },
+      {
+        "name": "ordinary-continuation",
+        "successfulActualClientReceipt": true,
+        "supportedHistory": {
+          "messages": 4,
+          "polls": 0,
+          "calls": 1,
+          "results": 1,
+          "orphanedResults": 0
+        },
+        "sdkResumeObserved": true
+      }
+    ],
+    "rawReportSHA256": "c91a9e11fc3573beea1529e55240530a8dd4649223ba39d3a94b945437f6c54f"
+  },
+  "custody": {
+    "originalOuterWaitJoined": true,
+    "originalChildrenStdinStdoutStderrExitCloseJoined": true,
+    "originalSDKFactoryIteratorCloseJoined": true,
+    "ownedPublicSDKReadsJoined": true,
+    "ownedProxyRelaySocketHandlerJoined": true,
+    "originalContainersPID0AndRemoved": true,
+    "accessOnlyInputReadOnlyUnchangedThenRemoved": true,
+    "sourceLoginRefreshWrites": false,
+    "privateSDKFilesRead": false,
+    "globalDescendantAbsence": "unknown"
+  },
+  "earlierEvidence": {
+    "firstNativeAttempt": {
+      "queries": 2,
+      "failure": "supported-served-tool-pair-lost-read-canary",
+      "actualClientReceiptSucceeded": true,
+      "acceptedAsDefectProof": false,
+      "causes": [
+        "Default CLI timestamp put poll prefix at offset27",
+        "Fresh SDK replay uses explicit identity-bearing history text, not imported native blocks"
+      ],
+      "corrections": [
+        "Supported owned envelopeTimestamp off",
+        "Inspect actual rendered identities as well as content blocks"
+      ],
+      "allOriginalActorsJoinedInputRemoved": true
+    },
+    "preliminaryCorrectedPair": {
+      "baselineQueries": 3,
+      "candidateQueries": 4,
+      "positive": true,
+      "supersededQualification": "Final paired run adds old-source negative on exact received history; no product source changed"
+    },
+    "nativeQueriesThisTaskTotal": 16
+  },
+  "review": {
+    "rootFreshAdversarial": true,
+    "materialScopedFindingsRemaining": 0,
+    "archivedIndependentSourceReview": "ACCEPT_SCOPED_CORRECTION_WITH_LIVE_CLIENT_AND_CI_HOLDS; original source scope retained",
+    "finalHeadCI": "REQUIRED_BEFORE_MERGE"
+  },
+  "remainingHolds": [
+    "Meridian issue769 stays open: undisclosed current classifier trigger and qualified same-window off/on/off/auth canary missing",
+    "Reporter original Kubernetes/native/SDK tuple not supplied",
+    "Default timestamp-prefixed CLI heartbeat recognition is not changed or accepted by this correction",
+    "Release authorization, publication and fresh registry installation remain separate"
+  ]
+}
