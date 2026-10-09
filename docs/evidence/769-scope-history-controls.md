@@ -52,3 +52,36 @@ and final passing counts, compiler/package commands, tarball hashes and fresh
 installed-entry result. The local pack is unpublished and retains version
 0.1.0; neither these unit/hook controls nor an installed plugin prove that the
 original OpenClaw deployment or September prompt now avoids a billing refusal.
+
+## Actual heartbeat replay gate
+
+Meridian's [core message-history correction](https://github.com/rynfar/meridian/pull/1324)
+now consumes the history returned by plugins. The manual native gate below
+uses the actual OpenClaw CLI, two recognized heartbeat polls, a real read
+tool/result pair and an ordinary follow-up. Its observer preserves the client's
+body, headers and returned plugin history; it supplies no model response.
+It reads only the public SDK session API for its owned, observed native target.
+
+```sh
+E2E_MERIDIAN_ENTRY=/absolute/installed/meridian/dist/server.js \
+E2E_SDK_ENTRY=/absolute/installed/sdk/sdk.mjs \
+E2E_NATIVE_BIN=/absolute/installed/native/claude \
+E2E_OPENCLAW_BIN=/absolute/installed/openclaw/openclaw.mjs \
+E2E_SCRUB_ENTRY=/absolute/installed/scrub/dist/index.js \
+E2E_OUTPUT_DIR=/absolute/new/private/output \
+E2E_EXPECT=candidate \
+bun scripts/e2e-openclaw-heartbeat-native.mjs --prepare-only
+# With those same variables, add E2E_TOKEN_FILE=/private/read-only/access-token
+# and omit --prepare-only to run the actual affected flow.
+```
+
+The gate requires Linux, Bun 1.3.11, OpenClaw 2026.6.11, SDK 0.2.141 and
+native Claude Code 2.1.284, with wire `opus[1m]` and observed Opus 5.5.
+Preparation needs no credential or network. The caller must mount a private,
+owner-only access-token file read-only, supervise the original outer process
+or container, and remove the token only after its terminal custody audit.
+The gate bounds admission, child and captured-pipe joins, SDK factory/iterator/
+close, public history reads and owned HTTP resources. Original failing runtime
+and missing-custody witnesses remain failures. It never establishes global
+descendant absence, publication, the reporter's Kubernetes tuple, or current
+billing-classifier acceptance.
