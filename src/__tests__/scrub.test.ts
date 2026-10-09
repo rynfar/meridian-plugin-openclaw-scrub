@@ -243,3 +243,97 @@ describe("plugin request transform", () => {
     expect(plugin.onRequest!(ctx)).toBe(ctx)
   })
 })
+
+describe("conservative OpenClaw content guards", () => {
+  const generic = "You are a generic assistant.\n## Documentation\nRead the project handbook.\n## Work\nAnswer the user."
+  const poll = {
+    role: "user",
+    content: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.",
+  }
+
+  it("does not recognize a generic Documentation heading as OpenClaw", () => {
+    expect(looksLikeOpenClaw(generic)).toBe(false)
+  })
+
+  it("preserves standalone generic documentation exactly", () => {
+    expect(scrubOpenClawFingerprints(generic)).toBe(generic)
+  })
+
+  it("keeps the exact unrelated context and heartbeat history", () => {
+    const ctx = { adapter: "pi", systemContext: generic, messages: [poll, poll], metadata: { keep: true } }
+    expect(plugin.onRequest!(ctx)).toBe(ctx)
+  })
+})
+
+describe("conservative heartbeat turn preservation", () => {
+  const poll = () => ({
+    role: "user",
+    content: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.",
+  })
+  const toolUse = { type: "tool_use", id: "read-fixture", name: "read", input: { path: "HEARTBEAT.md" } }
+  const toolResult = { role: "user", content: [{ type: "tool_result", tool_use_id: "read-fixture", content: "fixture checklist" }] }
+
+  it("preserves a tool-only assistant and its later matching result", () => {
+    const messages = [poll(), { role: "assistant", content: [toolUse] }, toolResult, poll()]
+    expect(scrubOpenClawHeartbeatHistory(messages)).toBe(messages)
+    expect(scrubOpenClawHeartbeatHistory(messages)[2]).toBe(toolResult)
+  })
+
+  it("preserves a HEARTBEAT_OK reply that also carries a tool call", () => {
+    const messages = [poll(), { role: "assistant", content: [{ type: "text", text: "HEARTBEAT_OK" }, toolUse] }, poll()]
+    expect(scrubOpenClawHeartbeatHistory(messages)).toBe(messages)
+  })
+
+  for (const [label, block] of [
+    ["thinking", { type: "thinking", thinking: "check the fixture" }],
+    ["unknown", { type: "future_block", payload: "keep" }],
+    ["image attachment", { type: "image", source: { type: "base64", media_type: "image/png", data: "fixture" } }],
+    ["malformed text", { type: "text", text: 42 }],
+    ["text with unknown payload", { type: "text", text: "HEARTBEAT_OK", attachment: "keep" }],
+    ["null block", null],
+  ] as const) {
+    it(`preserves an assistant with ${label} content`, () => {
+      const messages = [poll(), { role: "assistant", content: [block] }, poll()]
+      expect(scrubOpenClawHeartbeatHistory(messages)).toBe(messages)
+    })
+  }
+
+  for (const content of [undefined, null, 7, { unexpected: "keep" }]) {
+    it(`preserves an assistant with malformed content ${JSON.stringify(content)}`, () => {
+      const messages = [poll(), { role: "assistant", content }, poll()]
+      expect(scrubOpenClawHeartbeatHistory(messages)).toBe(messages)
+    })
+  }
+
+  it("preserves an old poll containing an attachment", () => {
+    const attached = { role: "user", content: [{ type: "text", text: poll().content }, { type: "document", source: "fixture" }] }
+    const messages = [attached, poll(), poll()]
+    expect(scrubOpenClawHeartbeatHistory(messages)).toEqual([attached, messages[2]])
+    expect(scrubOpenClawHeartbeatHistory(messages)[0]).toBe(attached)
+  })
+
+  it("preserves intervening tool results after an empty assistant", () => {
+    const messages = [poll(), { role: "assistant", content: [] }, toolResult, poll()]
+    expect(scrubOpenClawHeartbeatHistory(messages)).toBe(messages)
+  })
+
+  it("preserves unknown messages between an exact ack and the next poll", () => {
+    const messages = [poll(), { role: "assistant", content: "HEARTBEAT_OK" }, { role: "future", content: "keep" }, poll()]
+    expect(scrubOpenClawHeartbeatHistory(messages)).toBe(messages)
+  })
+
+  it("still removes proven empty replies and preserves the newest poll", () => {
+    const newest = poll()
+    const messages = [poll(), { role: "assistant", content: [] }, poll(), { role: "assistant", content: "" }, newest]
+    expect(scrubOpenClawHeartbeatHistory(messages)).toEqual([newest])
+  })
+
+  it("preserves tool-bearing history through the actual plugin hook", () => {
+    const messages = [poll(), { role: "assistant", content: [toolUse] }, toolResult, poll()]
+    const ctx = { adapter: "pi", systemContext: REAL, messages, metadata: { keep: true } }
+    const out = plugin.onRequest!(ctx)
+    expect(out.systemContext).not.toContain("running inside OpenClaw")
+    expect(out.messages).toBe(messages)
+    expect(out.metadata).toBe(ctx.metadata)
+  })
+})

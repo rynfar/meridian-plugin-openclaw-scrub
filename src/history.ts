@@ -6,18 +6,21 @@ interface MessageLike {
   content?: unknown
 }
 
-function messageText(message: unknown): string {
-  if (!message || typeof message !== "object") return ""
+/** Only a completely understood text payload can be discarded. */
+function plainMessageText(message: unknown): string | undefined {
+  if (!message || typeof message !== "object" || Array.isArray(message)) return undefined
   const content = (message as MessageLike).content
   if (typeof content === "string") return content
-  if (!Array.isArray(content)) return ""
-  return content
-    .filter((block): block is { type: "text"; text: string } =>
-      Boolean(block) && typeof block === "object" &&
-      (block as { type?: unknown }).type === "text" &&
-      typeof (block as { text?: unknown }).text === "string")
-    .map(block => block.text)
-    .join("\n")
+  if (!Array.isArray(content)) return undefined
+  const texts: string[] = []
+  for (const block of content) {
+    if (!block || typeof block !== "object" || Array.isArray(block)) return undefined
+    const textBlock = block as { type?: unknown; text?: unknown }
+    if (textBlock.type !== "text" || typeof textBlock.text !== "string") return undefined
+    if (Object.keys(block).some(key => key !== "type" && key !== "text")) return undefined
+    texts.push(textBlock.text)
+  }
+  return texts.join("\n")
 }
 
 function messageRole(message: unknown): string | undefined {
@@ -27,12 +30,13 @@ function messageRole(message: unknown): string | undefined {
 }
 
 function isHeartbeatPoll(message: unknown): boolean {
-  return messageRole(message) === "user" && messageText(message).startsWith(HEARTBEAT_POLL_PREFIX)
+  return messageRole(message) === "user"
+    && plainMessageText(message)?.startsWith(HEARTBEAT_POLL_PREFIX) === true
 }
 
 function isDisposableHeartbeatReply(message: unknown): boolean {
   if (messageRole(message) !== "assistant") return false
-  const text = messageText(message).trim()
+  const text = plainMessageText(message)?.trim()
   return text === "" || text === "HEARTBEAT_OK"
 }
 
@@ -45,7 +49,7 @@ function isDisposableHeartbeatReply(message: unknown): boolean {
  * classifies that transcript as a third-party app even after the system-prompt
  * fingerprint has been scrubbed. Keep the newest poll (the turn Claude must
  * answer), discard older unanswered polls and exact HEARTBEAT_OK acknowledgments,
- * and preserve any heartbeat that produced a real alert.
+ * and preserve alerts, tool turns, attachments and unrecognized content.
  *
  * Returns the original array reference when no change is needed.
  */
@@ -56,13 +60,18 @@ export function scrubOpenClawHeartbeatHistory(messages: unknown[]): unknown[] {
   if (heartbeatIndexes.length <= 1) return messages
 
   const drop = new Set<number>()
-  for (const index of heartbeatIndexes.slice(0, -1)) {
+  for (let position = 0; position < heartbeatIndexes.length - 1; position++) {
+    const index = heartbeatIndexes[position]!
+    const nextPoll = heartbeatIndexes[position + 1]!
     const next = messages[index + 1]
-    if (messageRole(next) === "assistant") {
-      // A substantive reply may be an alert the user needs in history. Keep
-      // that whole turn; only exact acks and empty failed assistant entries go.
+    if (nextPoll === index + 2) {
+      // Only a lone, fully understood empty/ack reply is disposable. A tool
+      // turn, attachment or unknown payload must keep its whole transcript.
       if (!isDisposableHeartbeatReply(next)) continue
       drop.add(index + 1)
+    } else if (nextPoll !== index + 1) {
+      // Intervening messages may contain tool results or another useful turn.
+      continue
     }
     drop.add(index)
   }
