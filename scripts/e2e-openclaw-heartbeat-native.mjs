@@ -136,7 +136,7 @@ function observeQuery() {
     facts.targetSessionDigest = digest(opts.sessionId)
     const recordInput = value => {
       const serialized = JSON.stringify(value)
-      const metrics = historyMetrics([value.message ?? value])
+      const metrics = historyMetrics([typeof value === 'string' ? { role: 'user', content: value } : value.message ?? value])
       facts.inputOwnedCallDigests.push(...metrics.ownedCallDigests)
       facts.inputOwnedResultDigests.push(...metrics.ownedResultDigests)
       facts.inputMarker ||= serialized.includes(marker)
@@ -233,6 +233,23 @@ function historyMetrics(messages) {
   const calls = blocks.filter(block => block?.type === 'tool_use' && (block.name === 'read' || deliveredCalls.has(block.id))
     && (block.input?.path === fixture || block.input?.file_path === fixture))
   const results = blocks.filter(block => block?.type === 'tool_result' && !block.is_error && JSON.stringify(block.content).includes(receipt))
+  // Fresh SDK replay represents historical calls/results as context text,
+  // rather than importing them as native assistant/tool-result blocks.
+  // Read the exact recorded identities in that public representation too.
+  for (const message of messages) {
+    if (message?.role !== 'user') continue
+    const texts = typeof message.content === 'string' ? [message.content]
+      : (Array.isArray(message.content) ? message.content.filter(block => block?.type === 'text').map(block => block.text) : [])
+    for (const text of texts) for (const line of text.split('\n')) {
+      for (const [prefix, isCall] of [['Previously called tool: ', true], ['Recorded tool result: ', false]]) {
+        const start = line.indexOf(prefix)
+        if (start < 0) continue
+        const record = JSON.parse(line.slice(start + prefix.length, line.lastIndexOf('}') + 1))
+        if (isCall && deliveredCalls.has(record.id) && (record.input?.path === fixture || record.input?.file_path === fixture)) calls.push(record)
+        if (!isCall && deliveredCalls.has(record.tool_use_id) && !record.is_error && text.includes(receipt)) results.push(record)
+      }
+    }
+  }
   return { count: messages.length, polls: messages.filter(message => message?.role === 'user'
     && (typeof message.content === 'string' ? message.content : (message.content ?? []).filter?.(block => block?.type === 'text').map(block => block.text).join('\n'))?.startsWith(poll)).length,
     ownedCallDigests: calls.map(call => digest(call.id)), ownedResultDigests: results.map(result => digest(result.tool_use_id)),
@@ -371,7 +388,7 @@ try {
     await bounded(new Promise((resolve, reject) => { relay.once('error', reject); relay.listen(0, '127.0.0.1', resolve) }), 5000, 'relay-listen-deadline')
     const config = { models: { mode: 'replace', providers: { meridian: { baseUrl: `http://127.0.0.1:${relay.address().port}`, apiKey: 'owned-local-fixture-key', api: 'anthropic-messages',
       models: [{ id: 'opus[1m]', name: 'Owned live gate', reasoning: false, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1_000_000, maxTokens: 4096 }] } } },
-      agents: { defaults: { workspace: join(output, 'client-work'), model: { primary: 'meridian/opus[1m]' }, memorySearch: { enabled: false }, thinkingDefault: 'off' } },
+      agents: { defaults: { workspace: join(output, 'client-work'), model: { primary: 'meridian/opus[1m]' }, envelopeTimestamp: 'off', memorySearch: { enabled: false }, thinkingDefault: 'off' } },
       tools: { allow: ['read'] }, plugins: { enabled: false }, gateway: { mode: 'local' } }
     writeFileSync(childEnv.OPENCLAW_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 })
     await cli('config-validate', '/usr/local/bin/node', [input.OPENCLAW_BIN, 'config', 'validate'])
@@ -467,7 +484,7 @@ finally {
     && !query.resume && query.inputOwnedResultDigests.some(id => !query.inputOwnedCallDigests.includes(id)))
   if (!prepareOnly && input.EXPECT === 'baseline' && !report.baselineBugProved) fail('baseline-heartbeat-orphan-not-reproduced')
   report.disposition = prepareOnly && !report.firstFailure ? 'PASS_PREREQUISITES_ONLY'
-    : report.baselineBugProved && report.httpJoined && report.queryJoins ? 'REPRODUCED_HEARTBEAT_ORPHAN_RUNTIME_RETAINED'
+    : report.baselineBugProved && report.httpJoined && report.queryJoins ? 'REPRODUCED_HEARTBEAT_ORPHAN_FAILURE_RETAINED'
     : report.firstFailure ? 'FAILED_NATIVE_GATE' : input.EXPECT === 'candidate' ? 'PASS_HEARTBEAT_TOOL_PAIR_AND_CONTINUATION_CLASSIFIER_HELD' : 'BASELINE_DID_NOT_REPRODUCE'
   save()
   process.stdout.write(JSON.stringify({ disposition: report.disposition, firstFailure: report.firstFailure, stages: report.stages.length, httpJoined: report.httpJoined, queryJoins: report.queryJoins }) + '\n')

@@ -77,6 +77,12 @@ bun scripts/e2e-openclaw-heartbeat-native.mjs --prepare-only
 
 The gate requires Linux, Bun 1.3.11, OpenClaw 2026.6.11, SDK 0.2.141 and
 native Claude Code 2.1.284, with wire `opus[1m]` and observed Opus 5.5.
+Its isolated OpenClaw config uses the supported
+`agents.defaults.envelopeTimestamp: "off"` setting so the actual CLI sends
+the recognized heartbeat prefix first. Default timestamp-prefixed CLI turns
+are outside this heartbeat recognition case. Historical tool calls/results
+are checked both at plugin ingress and in Meridian's explicit, identity-bearing
+SDK replay text; fresh SDK queries do not import native assistant blocks.
 Preparation needs no credential or network. The caller must mount a private,
 owner-only access-token file read-only, supervise the original outer process
 or container, and remove the token only after its terminal custody audit.
