@@ -19,9 +19,9 @@ import { spyOn } from 'bun:test'
 import { observeChildClosure, stopAndJoinChild } from './lib/e2eProcessCustody.mjs'
 
 const prepareOnly = process.argv.includes('--prepare-only')
-const input = Object.fromEntries(['MERIDIAN_ENTRY', 'SDK_ENTRY', 'NATIVE_BIN', 'OPENCLAW_BIN', 'SCRUB_ENTRY', 'OUTPUT_DIR', 'TOKEN_FILE', 'EXPECT']
+const input = Object.fromEntries(['MERIDIAN_ENTRY', 'SDK_ENTRY', 'NATIVE_BIN', 'OPENCLAW_BIN', 'SCRUB_ENTRY', 'REFERENCE_SCRUB_ENTRY', 'OUTPUT_DIR', 'TOKEN_FILE', 'EXPECT']
   .map(name => [name, process.env['E2E_' + name]]))
-for (const key of ['MERIDIAN_ENTRY', 'SDK_ENTRY', 'NATIVE_BIN', 'OPENCLAW_BIN', 'SCRUB_ENTRY', 'OUTPUT_DIR']) {
+for (const key of ['MERIDIAN_ENTRY', 'SDK_ENTRY', 'NATIVE_BIN', 'OPENCLAW_BIN', 'SCRUB_ENTRY', 'REFERENCE_SCRUB_ENTRY', 'OUTPUT_DIR']) {
   if (!input[key] || !isAbsolute(input[key])) throw new Error('Missing absolute fixture path: ' + key)
 }
 if (!['baseline', 'candidate'].includes(input.EXPECT)) throw new Error('Set E2E_EXPECT=baseline or candidate')
@@ -48,7 +48,7 @@ const report = {
   actualProviderQueries: 0, grantRead: false, sourceCredentialLoginRefreshWrites: false,
 }
 let retired = false, phase = 'preparation', mode = 'noop', token
-let instance, relay, sdk, currentClient
+let instance, relay, sdk, currentClient, baselineHistoryControl
 let startup, startupSettled = false
 const controls = new Set(), sockets = new Set(), socketClosures = [], handlers = new Set(), children = []
 const childIndex = new WeakMap(), spies = []
@@ -259,7 +259,8 @@ const observationKey = Symbol.for('meridian.openclaw769.native-fixture')
 const observations = { marker, get mode() { return mode }, request(ctx, effective) {
   need(ctx.adapter === 'opencode', 'actual-openclaw-fallback-adapter-changed')
   const raw = historyMetrics(ctx.body.messages), transformed = historyMetrics(effective)
-  report.pluginObservations.push({ phase, raw, transformed, rawDigest: digest(ctx.body.messages), effectiveDigest: digest(effective) })
+  const reference = historyMetrics(baselineHistoryControl(structuredClone(ctx.body.messages)))
+  report.pluginObservations.push({ phase, raw, transformed, reference, rawDigest: digest(ctx.body.messages), effectiveDigest: digest(effective) })
 }, session(ctx) { report.pluginObservations.push({ phase, kind: 'session', lineage: ctx.lineage, incomingCount: ctx.incomingCount, sessionKeyDigest: digest(ctx.sessionKey ?? '') }) } }
 globalThis[observationKey] = observations
 async function forward(request, response) {
@@ -332,7 +333,7 @@ try {
   need(magic.toString('hex') === '7f454c46', 'native-ELF-executable-required')
   const require = createRequire(input.MERIDIAN_ENTRY)
   need(realpathSync(require.resolve('@anthropic-ai/claude-agent-sdk')) === realpathSync(input.SDK_ENTRY), 'actual-package-sdk-resolution-mismatch')
-  report.inputFiles = Object.fromEntries(['MERIDIAN_ENTRY', 'SDK_ENTRY', 'NATIVE_BIN', 'OPENCLAW_BIN', 'SCRUB_ENTRY'].map(key => [key, { path: input[key], sha256: fileDigest(input[key]) }]))
+  report.inputFiles = Object.fromEntries(['MERIDIAN_ENTRY', 'SDK_ENTRY', 'NATIVE_BIN', 'OPENCLAW_BIN', 'SCRUB_ENTRY', 'REFERENCE_SCRUB_ENTRY'].map(key => [key, { path: input[key], sha256: fileDigest(input[key]) }]))
   observeSpawns()
   report.nodeRuntime = (await cli('node-version', '/usr/local/bin/node', ['--version'])).trim()
   report.nativeVersion = (await cli('native-version', input.NATIVE_BIN, ['--version'])).trim()
@@ -344,6 +345,8 @@ try {
   report.sdkVersion = sdkPackage.version; need(report.sdkVersion === '0.2.141', 'sdk-version-mismatch')
   const scrub = (await import(pathToFileURL(input.SCRUB_ENTRY).href)).default
   need(scrub?.name === 'openclaw-scrub' && typeof scrub.onRequest === 'function', 'installed-scrub-hook-required')
+  baselineHistoryControl = (await import(pathToFileURL(input.REFERENCE_SCRUB_ENTRY).href)).scrubOpenClawHeartbeatHistory
+  need(typeof baselineHistoryControl === 'function', 'unchanged-installed-history-control-required')
   if (!prepareOnly) {
     need(input.TOKEN_FILE && isAbsolute(input.TOKEN_FILE), 'private-access-only-file-required')
     const stat = lstatSync(input.TOKEN_FILE)
@@ -394,7 +397,7 @@ try {
     await cli('config-validate', '/usr/local/bin/node', [input.OPENCLAW_BIN, 'config', 'validate'])
     const sessionId = randomUUID()
     for (const [stage, prompt] of [
-      ['read-canary', poll + `\nControlled interactive test: use the read tool to read ${fixture}. Return the exact file contents, and nothing else.`],
+      ['read-canary', poll + `\nControlled interactive test: your first action must be one read tool call to ${fixture}, before any assistant text. Do not explain the call. After the read, return the exact file contents, and nothing else.`],
       ['heartbeat-replay', poll + '\nControlled interactive test: return the same file receipt from the preceding read tool result. Do not call tools.'],
       ['ordinary-continuation', 'Return that same receipt again. Do not call tools.'],
     ]) {
@@ -424,6 +427,7 @@ try {
         if (input.EXPECT === 'candidate') {
           need(observation.transformed.polls >= 2 && observation.transformed.ownedOrphanDigests.length === 0, 'candidate-heartbeat-pair-or-polls-lost')
           need(observation.rawDigest === observation.effectiveDigest, 'candidate-tool-bearing-history-was-mutated')
+          need(observation.reference.ownedOrphanDigests.length > 0, 'candidate-exact-history-did-not-exercise-original-pruning-defect')
         }
       }
       save()

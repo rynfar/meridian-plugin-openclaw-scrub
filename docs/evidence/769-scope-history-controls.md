@@ -68,6 +68,7 @@ E2E_SDK_ENTRY=/absolute/installed/sdk/sdk.mjs \
 E2E_NATIVE_BIN=/absolute/installed/native/claude \
 E2E_OPENCLAW_BIN=/absolute/installed/openclaw/openclaw.mjs \
 E2E_SCRUB_ENTRY=/absolute/installed/scrub/dist/index.js \
+E2E_REFERENCE_SCRUB_ENTRY=/absolute/installed/unchanged-scrub/dist/index.js \
 E2E_OUTPUT_DIR=/absolute/new/private/output \
 E2E_EXPECT=candidate \
 bun scripts/e2e-openclaw-heartbeat-native.mjs --prepare-only
@@ -83,6 +84,10 @@ the recognized heartbeat prefix first. Default timestamp-prefixed CLI turns
 are outside this heartbeat recognition case. Historical tool calls/results
 are checked both at plugin ingress and in Meridian's explicit, identity-bearing
 SDK replay text; fresh SDK queries do not import native assistant blocks.
+The unchanged plugin's pure history export runs only on a clone of each
+received client history as a reference control. Candidate acceptance requires
+that this exact history would lose its real call under the old transform;
+the reference is never applied to the live request or supplied to the model.
 Preparation needs no credential or network. The caller must mount a private,
 owner-only access-token file read-only, supervise the original outer process
 or container, and remove the token only after its terminal custody audit.
